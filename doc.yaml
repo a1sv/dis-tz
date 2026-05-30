@@ -1,0 +1,1454 @@
+openapi: 3.0.3
+info:
+  title: ДИС API - Диспетчеризация инструментального сервиса
+  description: |
+    REST API для приложения диспетчеризации услуги "инструментальный сервис"
+    
+    ## Основные возможности
+    * Управление заявками на обслуживание оборудования
+    * Контроль статусов и жизненного цикла заявок
+    * Назначение исполнителей (мастеров)
+    * Уведомления и комментарии
+    * Интеграция с 1С
+    
+    ## Аутентификация
+    JWT токен передается в заголовке: `Authorization: Bearer <token>`
+    
+    ## Коды ответов
+    * `200` - Успешно
+    * `201` - Создано
+    * `400` - Ошибка валидации
+    * `401` - Не авторизован
+    * `403` - Доступ запрещен
+    * `404` - Не найдено
+    * `500` - Внутренняя ошибка сервера
+  version: 1.0.0
+  contact:
+    name: a1sv
+    url: https://github.com/a1sv/dis-tz
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Локальный сервер для разработки
+
+tags:
+  - name: Auth
+    description: Аутентификация и управление сессиями
+  - name: Requests
+    description: Управление заявками на сервис
+  - name: Equipment
+    description: Справочник оборудования
+  - name: Users
+    description: Пользователи и роли
+  - name: Notifications
+    description: Уведомления
+  - name: Comments
+    description: Комментарии к заявкам
+  - name: Reports
+    description: Отчеты и статистика
+  - name: Integration
+    description: Интеграция с внешними системами (1С)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при авторизации
+
+  schemas:
+    # ==================== ОШИБКИ ====================
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Код ошибки
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Описание ошибки
+          example: "Поле 'title' обязательно для заполнения"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              error:
+                type: string
+          description: Детали валидации
+
+    # ==================== АВТОРИЗАЦИЯ ====================
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email пользователя
+          example: "dispatcher@rtc.ru"
+        password:
+          type: string
+          format: password
+          description: Пароль
+          example: "securePassword123"
+
+    LoginResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+          description: JWT токен доступа
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          description: Тип токена
+          example: "Bearer"
+        expires_in:
+          type: integer
+          description: Время жизни токена в секундах
+          example: 3600
+        refresh_token:
+          type: string
+          description: Токен для обновления
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Токен обновления
+
+    # ==================== ПОЛЬЗОВАТЕЛИ ====================
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+        - full_name
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID пользователя
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: Email
+          example: "dispatcher@rtc.ru"
+        full_name:
+          type: string
+          description: Полное имя
+          example: "Иванов Иван Иванович"
+        position:
+          type: string
+          description: Должность
+          example: "Старший диспетчер"
+        department:
+          type: string
+          description: Отдел
+          example: "Диспетчерская служба"
+        phone:
+          type: string
+          description: Телефон
+          example: "+7 (999) 123-45-67"
+        role:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            code:
+              type: string
+              enum: [admin, dispatcher, master, viewer]
+            name:
+              type: string
+        is_active:
+          type: boolean
+          description: Активен ли пользователь
+        last_login_at:
+          type: string
+          format: date-time
+          description: Дата последнего входа
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - password
+        - full_name
+        - role_code
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        full_name:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        phone:
+          type: string
+        role_code:
+          type: string
+          enum: [dispatcher, master, viewer]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        position:
+          type: string
+        department:
+          type: string
+        phone:
+          type: string
+        is_active:
+          type: boolean
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - old_password
+        - new_password
+      properties:
+        old_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    # ==================== ОБОРУДОВАНИЕ ====================
+    EquipmentResponse:
+      type: object
+      required:
+        - id
+        - code
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Инвентарный номер
+          example: "EQU-001"
+        name:
+          type: string
+          description: Наименование
+          example: "Токарный станок HAAS ST-10"
+        type:
+          type: string
+          description: Тип оборудования
+          example: "Станок"
+        model:
+          type: string
+          example: "ST-10"
+        serial_number:
+          type: string
+        location:
+          type: string
+          description: Местоположение
+          example: "Цех №3, участок 5"
+        technical_condition:
+          type: string
+          enum: [good, worn, repair, decommissioned]
+        manufacturer:
+          type: string
+        commissioning_date:
+          type: string
+          format: date
+        last_maintenance_at:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    EquipmentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateEquipmentRequest:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        model:
+          type: string
+        serial_number:
+          type: string
+        location:
+          type: string
+        technical_condition:
+          type: string
+          enum: [good, worn, repair, decommissioned]
+        manufacturer:
+          type: string
+        commissioning_date:
+          type: string
+          format: date
+
+    # ==================== ЗАЯВКИ ====================
+    ServiceRequestResponse:
+      type: object
+      required:
+        - id
+        - number
+        - title
+        - status
+        - priority
+        - equipment
+        - created_by
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          description: Номер заявки (формат ДИС-YYYY-XXXXX)
+          example: "ДИС-2026-00123"
+        title:
+          type: string
+          description: Краткое описание
+          example: "Не включается шпиндель"
+        description:
+          type: string
+          description: Полное описание проблемы
+        status:
+          type: string
+          enum: [draft, new, assigned, in_progress, pending_parts, completed, verified, canceled, overdue]
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        equipment:
+          $ref: '#/components/schemas/EquipmentResponse'
+        created_by:
+          $ref: '#/components/schemas/UserResponse'
+        assigned_to:
+          $ref: '#/components/schemas/UserResponse'
+        planned_start_at:
+          type: string
+          format: date-time
+        planned_end_at:
+          type: string
+          format: date-time
+        actual_start_at:
+          type: string
+          format: date-time
+        actual_end_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+        resolution:
+          type: string
+          description: Заключение по результатам работ
+        cost:
+          type: number
+          format: decimal
+          description: Стоимость работ
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServiceRequestListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRequestResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateServiceRequestRequest:
+      type: object
+      required:
+        - title
+        - equipment_id
+        - priority
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+        equipment_id:
+          type: string
+          format: uuid
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        planned_start_at:
+          type: string
+          format: date-time
+        planned_end_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+
+    UpdateServiceRequestRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        assigned_to_id:
+          type: string
+          format: uuid
+        planned_start_at:
+          type: string
+          format: date-time
+        planned_end_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+
+    ChangeRequestStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [assigned, in_progress, pending_parts, completed, verified, canceled]
+        comment:
+          type: string
+          description: Комментарий к изменению статуса
+
+    CompleteRequestRequest:
+      type: object
+      required:
+        - resolution
+      properties:
+        resolution:
+          type: string
+          description: Заключение о выполненных работах
+        cost:
+          type: number
+          format: decimal
+          description: Стоимость работ
+
+    # ==================== КОММЕНТАРИИ ====================
+    CommentResponse:
+      type: object
+      required:
+        - id
+        - content
+        - author
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        author:
+          $ref: '#/components/schemas/UserResponse'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentResponse'
+        is_internal:
+          type: boolean
+          description: Внутренний комментарий (виден только исполнителям)
+        created_at:
+          type: string
+          format: date-time
+
+    CommentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateCommentRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+        is_internal:
+          type: boolean
+          default: false
+
+    # ==================== УВЕДОМЛЕНИЯ ====================
+    NotificationResponse:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - content
+        - is_read
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [request_assigned, request_overdue, status_changed, deadline_reminder, system]
+        title:
+          type: string
+        content:
+          type: string
+        is_read:
+          type: boolean
+        related_request_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: string
+          format: date-time
+
+    NotificationListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        unread_count:
+          type: integer
+          description: Количество непрочитанных
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    MarkReadRequest:
+      type: object
+      properties:
+        notification_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Список ID уведомлений (если пусто - отметить все как прочитанные)
+
+    # ==================== ОТЧЕТЫ И СТАТИСТИКА ====================
+    DashboardStatsResponse:
+      type: object
+      properties:
+        total_requests:
+          type: integer
+          description: Всего заявок
+        new_requests:
+          type: integer
+          description: Новых заявок (требуют назначения)
+        in_progress_requests:
+          type: integer
+          description: В работе
+        overdue_requests:
+          type: integer
+          description: Просроченных
+        completed_today:
+          type: integer
+          description: Выполнено сегодня
+        average_completion_time:
+          type: number
+          format: float
+          description: Среднее время выполнения (часы)
+
+    RequestsReportResponse:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            total:
+              type: integer
+            by_status:
+              type: object
+              additionalProperties:
+                type: integer
+            by_priority:
+              type: object
+              additionalProperties:
+                type: integer
+        chart_data:
+          type: object
+          properties:
+            daily:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  created:
+                    type: integer
+                  completed:
+                    type: integer
+        requests:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRequestResponse'
+
+    # ==================== ФАЙЛЫ И ВЛОЖЕНИЯ ====================
+    AttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mime_type:
+          type: string
+        size_bytes:
+          type: integer
+        url:
+          type: string
+          description: Ссылка для скачивания
+        uploaded_by:
+          $ref: '#/components/schemas/UserResponse'
+        created_at:
+          type: string
+          format: date-time
+
+    UploadFileResponse:
+      type: object
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentResponse'
+
+    # ==================== ПАГИНАЦИЯ ====================
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        total_pages:
+          type: integer
+          example: 8
+
+    # ==================== ПАРАМЕТРЫ ФИЛЬТРАЦИИ ====================
+    RequestFilterParams:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [draft, new, assigned, in_progress, pending_parts, completed, verified, canceled, overdue]
+        priority:
+          type: string
+          enum: [critical, high, medium, low]
+        equipment_id:
+          type: string
+          format: uuid
+        assigned_to_id:
+          type: string
+          format: uuid
+        created_by_id:
+          type: string
+          format: uuid
+        from_date:
+          type: string
+          format: date-time
+        to_date:
+          type: string
+          format: date-time
+        search:
+          type: string
+          description: Поиск по номеру или заголовку
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==================== AUTH ====================
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Авторизация пользователя
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Учетная запись заблокирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Обновление токена доступа
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Токен обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Недействительный refresh токен
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Выход из системы
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Успешный выход
+
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Получить информацию о текущем пользователе
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Информация о пользователе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Не авторизован
+
+  # ==================== ПОЛЬЗОВАТЕЛИ ====================
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Получить список пользователей
+      operationId: getUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, dispatcher, master, viewer]
+          description: Фильтр по роли
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+          description: Фильтр по активности
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '403':
+          description: Доступ только для администратора
+
+    post:
+      tags:
+        - Users
+      summary: Создать пользователя
+      operationId: createUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Ошибка валидации
+        '403':
+          description: Доступ только для администратора
+        '409':
+          description: Пользователь с таким email уже существует
+
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Получить пользователя по ID
+      operationId: getUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '404':
+          description: Пользователь не найден
+
+    put:
+      tags:
+        - Users
+      summary: Обновить пользователя
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Пользователь обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Пользователь не найден
+
+    delete:
+      tags:
+        - Users
+      summary: Удалить (деактивировать) пользователя
+      operationId: deleteUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Пользователь деактивирован
+        '403':
+          description: Доступ только для администратора
+
+  /users/{id}/password:
+    put:
+      tags:
+        - Users
+      summary: Изменить пароль пользователя
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Пароль изменен
+        '400':
+          description: Неверный старый пароль или слабый новый
+        '403':
+          description: Доступ запрещен
+
+  # ==================== ОБОРУДОВАНИЕ ====================
+  /equipment:
+    get:
+      tags:
+        - Equipment
+      summary: Получить список оборудования
+      operationId: getEquipmentList
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Фильтр по типу
+        - name: location
+          in: query
+          schema:
+            type: string
+          description: Фильтр по местоположению
+        - name: technical_condition
+          in: query
+          schema:
+            type: string
+            enum: [good, worn, repair, decommissioned]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Поиск по коду, названию
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Список оборудования
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentListResponse'
+
+    post:
+      tags:
+        - Equipment
+      summary: Добавить оборудование
+      operationId: createEquipment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEquipmentRequest'
+      responses:
+        '201':
+          description: Оборудование добавлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentResponse'
+        '400':
+          description: Ошибка валидации
+        '409':
+          description: Оборудование с таким инвентарным номером уже существует
+
+  /equipment/{id}:
+    get:
+      tags:
+        - Equipment
+      summary: Получить оборудование по ID
+      operationId: getEquipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные оборудования
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentResponse'
+        '404':
+          description: Оборудование не найдено
+
+    put:
+      tags:
+        - Equipment
+      summary: Обновить оборудование
+      operationId: updateEquipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEquipmentRequest'
+      responses:
+        '200':
+          description: Оборудование обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentResponse'
+        '404':
+          description: Оборудование не найдено
+
+    delete:
+      tags:
+        - Equipment
+      summary: Удалить оборудование
+      operationId: deleteEquipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Оборудование удалено
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Оборудование не найдено
+
+  # ==================== ЗАЯВКИ ====================
+  /requests:
+    get:
+      tags:
+        - Requests
+      summary: Получить список заявок
+      operationId: getRequests
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: equipment_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: assigned_to_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: created_by_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Список заявок
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestListResponse'
+
+    post:
+      tags:
+        - Requests
+      summary: Создать новую заявку
+      operationId: createRequest
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceRequestRequest'
+      responses:
+        '201':
+          description: Заявка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '400':
+          description: Ошибка валидации
+
+  /requests/{id}:
+    get:
+      tags:
+        - Requests
+      summary: Получить заявку по ID
+      operationId: getRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные заявки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '404':
+          description: Заявка не найдена
+
+    put:
+      tags:
+        - Requests
+      summary: Обновить заявку
+      operationId: updateRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateServiceRequestRequest'
+      responses:
+        '200':
+          description: Заявка обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '403':
+          description: Доступ запрещен
+        '404':
+          description: Заявка не найдена
+
+    delete:
+      tags:
+        - Requests
+      summary: Удалить заявку (только черновик или новая)
+      operationId: deleteRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Заявка удалена
+        '403':
+          description: Нельзя удалить заявку в статусе
+
+  /requests/{id}/status:
+    put:
+      tags:
+        - Requests
+      summary: Изменить статус заявки
+      operationId: changeRequestStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRequestStatusRequest'
+      responses:
+        '200':
+          description: Статус изменен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '400':
+          description: Недопустимый переход статуса
+        '403':
+          description: Доступ запрещен
+
+  /requests/{id}/complete:
+    post:
+      tags:
+        - Requests
+      summary: Завершить заявку (для мастера/наладчика)
+      operationId: completeRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRequestRequest'
+      responses:
+        '200':
+          description: Заявка завершена (статус completed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '400':
+          description: Нельзя завершить заявку в текущем статусе
+
+  /requests/{id}/verify:
+    post:
+      tags:
+        - Requests
+      summary: Проверить и закрыть заявку (для диспетчера)
+      operationId: verifyRequest
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заявка проверена и закрыта (статус verified)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRequestResponse'
+        '403':
+          description: Только для диспетчера
+
+  # ==================== КОММЕНТАРИИ ====================
+  /requests/{id}/comments:
+    get:
+      tags:
+        - Comments
+      summary: Получить комментарии к заявке
+      operationId: getComments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Список комментариев
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentListResponse'
+
+    post:
+      tags:
+        - Comments
+      summary: Добавить комментарий к заявке
+      operationId: addComment
+      security:
+        - bearerAuth: []
+      responses:
+            '201':
+              description: Комментарий добавлен успешно
