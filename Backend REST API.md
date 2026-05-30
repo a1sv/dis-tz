@@ -26,4 +26,4 @@
  - Методы для использования адаптера интеграции с 1С (смотреть интеграцию с 1С)
  - Методы для сохранения файлов (локально и в s3)
 
-Документация методов [`Backend REST API.md`](https://github.com/a1sv/dis-tz/blob/main/swagger.yaml)
+Документация методов [`swagger.yaml`](https://github.com/a1sv/dis-tz/blob/main/swagger.yaml)
