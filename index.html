@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>API Documentation</title>
+    <!-- Подключаем стили Swagger UI из CDN -->
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com">
+    <style>
+        html { box-sizing: border-box; overflow: -webkit-scrollbar; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body { margin: 0; background: #fafafa; }
+    </style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+
+<!-- Подключаем скрипты Swagger UI из CDN -->
+<script src="https://unpkg.com"></script>
+<script src="https://unpkg.com"></script>
+
+<script>
+    window.onload = function() {
+        // Инициализируем Swagger UI, указывая относительный путь к yaml-файлу
+        const ui = SwaggerUIBundle({
+            url: "./swagger.yaml",
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+            ],
+            plugins: [
+                SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "BaseLayout"
+        });
+        window.ui = ui;
+    };
+</script>
+</body>
+</html>
