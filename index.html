@@ -43,9 +43,6 @@
         .swagger-ui .info .title small.version-stamp {
             background-color: #89bf04;
         }
-        .swagger-ui .info .title small pre.version {
-            margin: 0;
-        }
         .github-corner {
             position: fixed;
             top: 0;
@@ -57,6 +54,25 @@
                 width: 50px;
                 height: 50px;
             }
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            text-align: center;
+            z-index: 10000;
+            max-width: 80%;
         }
     </style>
 </head>
@@ -70,7 +86,9 @@
     </div>
 </div>
 
-<div id="swagger-ui"></div>
+<div id="swagger-ui">
+    <div class="loading">Загрузка Swagger UI...</div>
+</div>
 
 <!-- GitHub Corner -->
 <a href="https://github.com/a1sv/dis-tz" class="github-corner" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub">
@@ -81,105 +99,137 @@
     </svg>
 </a>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.js"></script>
 <script>
-    window.onload = function() {
-        // Получаем URL до swagger.yaml в вашем репозитории
-        // GitHub Pages обслуживает файлы из корня репозитория
-        const swaggerYamlUrl = window.location.origin + '/dis-tz/swagger.yaml';
+    // Функция для отображения ошибки
+    function showError(message, details) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `
+            <h3>⚠️ Ошибка загрузки Swagger спецификации</h3>
+            <p>${message}</p>
+            <p><strong>${details}</strong></p>
+            <hr>
+            <p><small>Убедитесь, что файл <code>swagger.yaml</code> существует в корне репозитория</small></p>
+            <button onclick="location.reload()" style="
+                margin-top: 15px;
+                padding: 8px 20px;
+                background: #1b1b1b;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            ">Обновить страницу</button>
+        `;
+        document.body.appendChild(errorDiv);
 
-        // Альтернатива: использовать raw.githubusercontent.com (если не работает через pages)
-        // const swaggerYamlUrl = 'https://raw.githubusercontent.com/a1sv/dis-tz/main/swagger.yaml';
+        // Убираем индикатор загрузки
+        const loadingDiv = document.querySelector('#swagger-ui .loading');
+        if (loadingDiv) {
+            loadingDiv.style.display = 'none';
+        }
+    }
 
-        console.log('Загрузка Swagger спецификации из:', swaggerYamlUrl);
+    // Ждем полной загрузки всех скриптов
+    window.addEventListener('load', function() {
+        // Проверяем, что SwaggerUI загрузился
+        if (typeof SwaggerUIBundle === 'undefined') {
+            showError('Swagger UI библиотека не загрузилась', 'Проверьте подключение к интернету или CDN');
+            return;
+        }
 
-        // Инициализация Swagger UI
-        const ui = SwaggerUIBundle({
-            url: swaggerYamlUrl,
-            dom_id: '#swagger-ui',
-            deepLinking: true,
-            presets: [
-                SwaggerUIBundle.presets.apis,
-                SwaggerUIStandalonePreset
-            ],
-            plugins: [
-                SwaggerUIBundle.plugins.DownloadUrl
-            ],
-            layout: "BaseLayout",
-            docExpansion: "list",
-            defaultModelExpandDepth: 1,
-            defaultModelsExpandDepth: 1,
-            displayRequestDuration: true,
-            filter: true,
-            tryItOutEnabled: true,
-            showExtensions: true,
-            showCommonExtensions: true,
-            supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'],
-            validatorUrl: "https://validator.swagger.io/validator",
-            persistAuthorization: true,
-            requestInterceptor: (request) => {
-                // Можно добавить логирование запросов при необходимости
-                console.log('Request:', request);
-                return request;
-            },
-            responseInterceptor: (response) => {
-                console.log('Response:', response);
-                return response;
-            }
-        });
+        // Пробуем разные варианты URL для swagger.yaml
+        const possibleUrls = [
+            window.location.origin + '/dis-tz/swagger.yaml',
+            window.location.origin + '/swagger.yaml',
+            'https://raw.githubusercontent.com/a1sv/dis-tz/main/swagger.yaml',
+            './swagger.yaml'
+        ];
 
-        window.ui = ui;
+        let currentUrlIndex = 0;
 
-        // Обработка ошибки загрузки спецификации
-        fetch(swaggerYamlUrl)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        function tryLoadSwagger() {
+            const swaggerYamlUrl = possibleUrls[currentUrlIndex];
+            console.log(`Попытка ${currentUrlIndex + 1}: загрузка из ${swaggerYamlUrl}`);
+
+            // Сначала проверяем, существует ли файл
+            fetch(swaggerYamlUrl, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Файл найден! Загружаем Swagger UI');
+                        initializeSwagger(swaggerYamlUrl);
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                })
+                .catch(error => {
+                    console.warn(`Не удалось загрузить из ${swaggerYamlUrl}:`, error);
+                    currentUrlIndex++;
+                    if (currentUrlIndex < possibleUrls.length) {
+                        tryLoadSwagger();
+                    } else {
+                        showError(
+                            'Swagger спецификация не найдена',
+                            'Проверено несколько возможных путей. Убедитесь, что файл swagger.yaml существует в корне репозитория.'
+                        );
+                    }
+                });
+        }
+
+        function initializeSwagger(url) {
+            const ui = SwaggerUIBundle({
+                url: url,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "BaseLayout",
+                docExpansion: "list",
+                defaultModelExpandDepth: 1,
+                defaultModelsExpandDepth: 1,
+                displayRequestDuration: true,
+                filter: true,
+                tryItOutEnabled: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'],
+                validatorUrl: "https://validator.swagger.io/validator",
+                persistAuthorization: true,
+                requestInterceptor: (request) => {
+                    console.log('Request:', request);
+                    return request;
+                },
+                responseInterceptor: (response) => {
+                    console.log('Response:', response);
+                    return response;
+                },
+                onComplete: function() {
+                    console.log('Swagger UI успешно загружен');
+                    // Убираем индикатор загрузки
+                    const loadingDiv = document.querySelector('#swagger-ui .loading');
+                    if (loadingDiv) {
+                        loadingDiv.style.display = 'none';
+                    }
+                },
+                onFailure: function(error) {
+                    console.error('Ошибка инициализации Swagger UI:', error);
+                    showError('Ошибка при загрузке спецификации', error.toString());
                 }
-                return response.text();
-            })
-            .then(yaml => {
-                console.log('Swagger YAML загружен успешно');
-            })
-            .catch(error => {
-                console.error('Ошибка загрузки swagger.yaml:', error);
-                const errorDiv = document.createElement('div');
-                errorDiv.style.cssText = `
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                    text-align: center;
-                    z-index: 10000;
-                    max-width: 80%;
-                `;
-                errorDiv.innerHTML = `
-                    <h3>⚠️ Не удалось загрузить Swagger спецификацию</h3>
-                    <p>Файл <code>swagger.yaml</code> не найден по адресу:<br>
-                    <strong>${swaggerYamlUrl}</strong></p>
-                    <p>Убедитесь, что файл существует в корне репозитория<br>
-                    и доступен через GitHub Pages.</p>
-                    <hr>
-                    <p><small>Проверьте путь в файле <code>index.html</code> или<br>
-                    используйте альтернативный URL в коде скрипта.</small></p>
-                    <button onclick="location.reload()" style="
-                        margin-top: 15px;
-                        padding: 8px 20px;
-                        background: #1b1b1b;
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        cursor: pointer;
-                    ">Обновить</button>
-                `;
-                document.body.appendChild(errorDiv);
             });
-    };
+
+            window.ui = ui;
+        }
+
+        // Начинаем попытки загрузки
+        tryLoadSwagger();
+    });
 </script>
 </body>
 </html>
