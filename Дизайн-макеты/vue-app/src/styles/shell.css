@@ -1,0 +1,296 @@
+/* ============ Оболочка приложения ============ */
+.app {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---------- Сайдбар ---------- */
+.side {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  min-height: 0;
+}
+.side .logo {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.side .logo b {
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+.side .logo span {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.role-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 12px 4px;
+}
+.role-tabs button {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.role-tabs button:hover {
+  background: var(--line);
+}
+.role-tabs button.active {
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+.nav {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 12px 20px;
+}
+.nav .group {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  margin: 16px 8px 6px;
+  font-weight: 600;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  line-height: 1.2;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.nav a:hover {
+  background: var(--surface-2);
+}
+.nav a .nav-ico {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--ink-3);
+}
+.nav a.active {
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+.nav a.active .nav-ico {
+  color: var(--brand-700);
+}
+.nav a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--brand);
+}
+
+/* ---------- Контент ---------- */
+.main {
+  overflow-y: auto;
+  position: relative;
+  padding: 24px 32px 48px;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: 8px 0;
+}
+.topbar .crumb {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.topbar .us-tag {
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid var(--brand-200);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.navbtns {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+.navbtns button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  padding: 0 14px;
+  min-height: 40px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.navbtns button:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.navbtns button.danger {
+  border-color: #fecaca;
+  color: var(--danger);
+}
+.navbtns button.danger:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+/* ---------- Экраны (галерея) ---------- */
+.screen-head {
+  margin-bottom: 16px;
+}
+.screen-head .kick {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.screen-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 960px;
+}
+.stage {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.stage .caption {
+  width: 100%;
+  margin: 0 0 -6px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-style: italic;
+}
+.frames {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* ---------- Gate ---------- */
+.gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+/* ---------- Тосты ---------- */
+.toasts {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--ink);
+  color: #fff;
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-size: 13px;
+  box-shadow: var(--shadow-pop);
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toast.ok {
+  border-left: 4px solid var(--ok);
+}
+.toast.err {
+  border-left: 4px solid var(--danger);
+}
+.toast.warn {
+  border-left: 4px solid var(--warn);
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.2s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* ---------- Переходы ---------- */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* ---------- Адаптивность ---------- */
+@media (max-width: 1279px) {
+  .main {
+    padding: 20px;
+  }
+}
+@media (max-width: 1023px) {
+  .app {
+    grid-template-columns: 60px 1fr;
+  }
+  .side .logo b,
+  .side .logo span,
+  .role-tabs button,
+  .nav a span,
+  .nav .group {
+    display: none;
+  }
+  .nav a {
+    justify-content: center;
+    padding: 0;
+  }
+}
+@media (max-width: 899px) {
+  .main {
+    padding: 16px;
+  }
+}
